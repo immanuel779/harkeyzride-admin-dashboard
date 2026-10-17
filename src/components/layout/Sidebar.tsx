@@ -1,17 +1,25 @@
+import { BRAND } from '../../config/brand'
 import { useMemo } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
+   Users2,     
   Car,
   Route,
   Wallet,
   AlertTriangle,
   MessageSquare,
-  FileText,
   Settings,
   LogOut,
   Search,
+  FileDown,
+  Receipt,
+  Ban,
+  Fuel,
+   Banknote,        // ← new for Withdrawals
+  Tag,             // ← new for Promotions
+  MessageCircle,   // ← new for Complaints
 } from 'lucide-react'
 
 import { useAuth } from '../../store/AuthContext'
@@ -31,10 +39,17 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/drivers', label: 'Drivers', icon: Car },
   { to: '/rides', label: 'Rides', icon: Route },
   { to: '/financials', label: 'Financials', icon: Wallet },
+   { to: '/withdrawals', label: 'Withdrawals', icon: Banknote },  
+  { to: '/subscriptions', label: 'Subscriptions', icon: Receipt },
+    { to: '/promotions', label: 'Promotions', icon: Tag },    
+  { to: '/cancellations', label: 'Cancellations', icon: Ban },
+    { to: '/complaints', label: 'Complaints', icon: MessageCircle }, 
+  { to: '/cng-rebate', label: 'CNG Rebate', icon: Fuel },
   { to: '/sos', label: 'SOS Desk', icon: AlertTriangle },
   { to: '/chat', label: 'Team Chat', icon: MessageSquare, badgeKey: 'chat' },
-  { to: '/audit', label: 'Audit Log', icon: FileText },
+  { to: '/audit', label: 'Audit Export', icon: FileDown },
   { to: '/settings', label: 'Settings', icon: Settings },
+    { to: '/team', label: 'Admin Team', icon: Users2 },   
 ]
 
 type Props = {
@@ -57,7 +72,6 @@ export function Sidebar({ onNavigate }: Props) {
   }
 
   const handleOpenCommandPalette = () => {
-    // Simulate the global keyboard shortcut to open the palette
     const event = new KeyboardEvent('keydown', {
       key: 'k',
       ctrlKey: true,
@@ -73,14 +87,17 @@ export function Sidebar({ onNavigate }: Props) {
 
   return (
     <aside className="flex h-full w-64 flex-col bg-navy text-white">
-      {/* Brand */}
+           {/* Brand */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-lg bg-emerald flex items-center justify-center text-lg font-bold">
-          S
+        <div
+          className="w-9 h-9 rounded-lg bg-emerald flex items-center justify-center text-base font-bold"
+          aria-hidden="true"
+        >
+          HR
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-bold">SwitchRide</span>
-          <span className="text-[11px] text-white/50">Admin Console</span>
+          <span className="text-sm font-bold">{BRAND.name}</span>
+          <span className="text-[11px] text-white/50">{BRAND.productLabel}</span>
         </div>
       </div>
 
@@ -88,9 +105,10 @@ export function Sidebar({ onNavigate }: Props) {
       <button
         type="button"
         onClick={handleOpenCommandPalette}
+        aria-label="Open quick search (Ctrl+K)"
         className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors"
       >
-        <Search size={12} className="flex-shrink-0" />
+        <Search size={12} className="flex-shrink-0" aria-hidden="true" />
         <span className="flex-1 text-left">Quick search</span>
         <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[10px]">
           ⌘K
@@ -98,7 +116,11 @@ export function Sidebar({ onNavigate }: Props) {
       </button>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav
+        className="flex-1 overflow-y-auto py-4"
+        role="navigation"
+        aria-label="Main navigation"
+      >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const showBadge = item.badgeKey === 'chat' && chatUnread > 0
@@ -118,10 +140,13 @@ export function Sidebar({ onNavigate }: Props) {
                 )
               }
             >
-              <Icon size={18} />
+              <Icon size={18} aria-hidden="true" />
               <span className="flex-1">{item.label}</span>
               {showBadge ? (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-danger text-white text-[10px] font-bold px-1">
+                <span
+                  className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-danger text-white text-[10px] font-bold px-1"
+                  aria-label={`${chatUnread} unread messages`}
+                >
                   {chatUnread}
                 </span>
               ) : null}
@@ -133,7 +158,10 @@ export function Sidebar({ onNavigate }: Props) {
       {/* User + sign out */}
       <div className="border-t border-white/10 p-4">
         <div className="flex items-center gap-3 mb-3 px-1">
-          <div className="w-8 h-8 rounded-full bg-emerald flex items-center justify-center text-xs font-bold text-white">
+          <div
+            className="w-8 h-8 rounded-full bg-emerald flex items-center justify-center text-xs font-bold text-white"
+            aria-hidden="true"
+          >
             {initials}
           </div>
           <div className="flex flex-col leading-tight min-w-0">
@@ -149,9 +177,10 @@ export function Sidebar({ onNavigate }: Props) {
         <button
           type="button"
           onClick={handleSignOut}
+          aria-label={`Sign out ${user?.firstName ?? 'admin'}`}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
         >
-          <LogOut size={18} />
+          <LogOut size={18} aria-hidden="true" />
           <span>Sign out</span>
         </button>
       </div>

@@ -1,6 +1,14 @@
 export type AlertStatus = 'open' | 'acknowledged' | 'resolved'
 export type AlertSeverity = 'critical' | 'high' | 'medium'
 
+import { env } from '../../../config/env'
+import { api } from '../../../lib/apiClient'
+import {
+  adaptSosList,
+  type BackendPagination,
+  type BackendSos,
+} from '../../../services/adapters'
+
 export type SosAlert = {
   id: string
   rideId: string
@@ -18,11 +26,10 @@ export type SosAlert = {
   notes: string[]
 }
 
-// 🟡 BACKEND REQUIRED — GET /admin/sos/alerts
-// 🟡 Real-time: subscribe to WebSocket 'sos:new_alert'
-const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString()
+const minutesAgo = (m: number) =>
+  new Date(Date.now() - m * 60 * 1000).toISOString()
 
-export const MOCK_ALERTS: SosAlert[] = [
+const INITIAL: SosAlert[] = [
   {
     id: 'sos_001',
     rideId: 'rd_4821',
@@ -72,22 +79,59 @@ export const MOCK_ALERTS: SosAlert[] = [
     notes: ['Called rider — no answer. Escalating to driver.'],
   },
 ]
-// ---------- Async fetchers (used by TanStack Query) ----------
 
-// 🟡 BACKEND REQUIRED — GET /admin/sos/alerts
+// ---------- Mutable in-memory store ----------
+
+let store: SosAlert[] = INITIAL.map((a) => ({
+  ...a,
+  coordinates: { ...a.coordinates },
+  notes: [...a.notes],
+}))
+
+// ---------- Async fetchers ----------
+
+// ---------- Real API (SOS list is nested: data.alerts.items) ----------
+
 export async function fetchSosAlerts(): Promise<SosAlert[]> {
-  await new Promise((r) => setTimeout(r, 500))
-  return MOCK_ALERTS
+  if (env.useMockApi) {
+    await new Promise((r) => setTimeout(r, 500))
+    return store.map((a) => ({
+      ...a,
+      coordinates: { ...a.coordinates },
+      notes: [...a.notes],
+    }))
+  }
+  const res = await api.get<{
+    alerts: BackendPagination<BackendSos> | BackendSos[]
+  }>('/admin/sos', { query: { limit: 100 } })
+
+  const rows = Array.isArray(res.alerts)
+    ? res.alerts
+    : res.alerts?.items ?? []
+
+  return adaptSosList(rows)
 }
 
-// 🟡 BACKEND REQUIRED — POST /admin/sos/:id/acknowledge
 export async function acknowledgeSosApi(id: string): Promise<void> {
-  await new Promise((r) => setTimeout(r, 500))
-  console.log('[mock api] acknowledged SOS', id)
+  if (env.useMockApi) {
+    await new Promise((r) => setTimeout(r, 500))
+    store = store.map((a) =>
+      a.id === id ? { ...a, status: 'acknowledged' } : a,
+    )
+    return
+  }
+  await api.put(`/admin/sos/${id}`, { status: 'acknowledged' })
 }
 
-// 🟡 BACKEND REQUIRED — POST /admin/sos/:id/resolve { note }
 export async function resolveSosApi(id: string, note: string): Promise<void> {
-  await new Promise((r) => setTimeout(r, 600))
-  console.log('[mock api] resolved SOS', id, 'note:', note)
+  if (env.useMockApi) {
+    await new Promise((r) => setTimeout(r, 600))
+    store = store.map((a) =>
+      a.id === id
+        ? { ...a, status: 'resolved', notes: [...a.notes, note] }
+        : a,
+    )
+    return
+  }
+  await api.put(`/admin/sos/${id}`, { status: 'resolved', note })
 }

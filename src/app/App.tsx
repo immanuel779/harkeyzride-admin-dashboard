@@ -4,13 +4,14 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
 
 import { ErrorBoundary } from '../components/shared/ErrorBoundary'
+import { BRAND } from '../config/brand'
 import { queryClient } from '../lib/queryClient'
 import { router } from '../routes'
 
 function App() {
   return (
     <ErrorBoundary
-      fallbackTitle="SwitchRide Admin crashed"
+      fallbackTitle={`${BRAND.name} Admin crashed`}
       fallbackMessage="Something went wrong at the app level. Reload to recover — if this keeps happening, contact the dev team."
     >
       <QueryClientProvider client={queryClient}>

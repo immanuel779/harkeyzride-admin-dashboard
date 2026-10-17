@@ -25,7 +25,7 @@ export function EmptyState({
       )}
     >
       <div className="w-14 h-14 rounded-2xl bg-surface-alt text-ink-muted flex items-center justify-center mb-4">
-        <Icon size={24} />
+        <Icon size={24} aria-hidden="true" />
       </div>
       <h3 className="text-sm font-semibold text-ink mb-1">{title}</h3>
       {description ? (

@@ -1,67 +1,104 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
-  MOCK_CHANNELS,
-  MOCK_MESSAGES,
-  MOCK_ONLINE_ADMINS,
-  type Channel,
-  type ChatMessage,
-} from '../data/mockChat'
-import { useAuth } from '../../../store/AuthContext'
+  fetchChannels,
+  fetchMessages,
+  markChannelReadApi,
+  sendMessageApi,
+} from '../services/chatApi'
+import { MOCK_ONLINE_ADMINS, type Channel, type ChatMessage } from '../data/mockChat'
+
+export const chatKeys = {
+  all: ['chat'] as const,
+  channels: () => [...chatKeys.all, 'channels'] as const,
+  messages: (channelId: string) =>
+    [...chatKeys.all, 'messages', channelId] as const,
+}
 
 export function useChat() {
-  const { user } = useAuth()
-  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS)
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES)
-  const [activeChannelId, setActiveChannelId] = useState<string>(
-    MOCK_CHANNELS[0]?.id ?? 'general',
-  )
+  const qc = useQueryClient()
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
 
-  // Clear unread when switching channel
-  const selectChannel = (id: string) => {
-    setActiveChannelId(id)
-    setChannels((list) =>
-      list.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
-    )
-  }
+  // ---------- Channels ----------
+  const channelsQuery = useQuery<Channel[]>({
+    queryKey: chatKeys.channels(),
+    queryFn: fetchChannels,
+    refetchInterval: 15 * 1000,
+  })
 
-  const activeChannel = useMemo(
-    () => channels.find((c) => c.id === activeChannelId) ?? channels[0],
-    [channels, activeChannelId],
-  )
+  const channels = channelsQuery.data ?? []
 
-  const activeMessages = useMemo(
-    () =>
-      messages
-        .filter((m) => m.channelId === activeChannelId)
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        ),
-    [messages, activeChannelId],
-  )
-
-  const sendMessage = (
-    body: string,
-    attachment?: ChatMessage['attachment'],
-  ) => {
-    if (!user) return
-    const initials = `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase()
-
-    // 🟡 BACKEND REQUIRED — POST /admin/chat/channels/:id/messages
-    // 🟡 Real-time: emit WebSocket 'chat:message_send'
-    const newMessage: ChatMessage = {
-      id: `m_${Date.now()}`,
-      channelId: activeChannelId,
-      authorId: user.id,
-      authorName: `${user.firstName} ${user.lastName}`,
-      authorInitials: initials || 'A',
-      body,
-      attachment,
-      createdAt: new Date().toISOString(),
+  useEffect(() => {
+    if (!activeChannelId && channels.length > 0) {
+      setActiveChannelId(channels[0].id)
     }
-    setMessages((list) => [...list, newMessage])
-  }
+  }, [channels, activeChannelId])
+
+  const activeChannel =
+    channels.find((c) => c.id === activeChannelId) ?? channels[0] ?? null
+
+  // ---------- Messages ----------
+  const messagesQuery = useQuery<ChatMessage[]>({
+    queryKey: activeChannelId
+      ? chatKeys.messages(activeChannelId)
+      : (['chat', 'messages', 'none'] as const),
+    queryFn: (): Promise<ChatMessage[]> =>
+      activeChannelId
+        ? fetchMessages(activeChannelId)
+        : Promise.resolve([] as ChatMessage[]),
+    enabled: !!activeChannelId,
+    refetchInterval: 5 * 1000,
+  })
+
+  const activeMessages: ChatMessage[] = messagesQuery.data ?? []
+
+  // Mark channel read when it becomes active
+  useEffect(() => {
+    if (activeChannelId) {
+      markChannelReadApi(activeChannelId).then(() => {
+        qc.invalidateQueries({ queryKey: chatKeys.channels() })
+      })
+    }
+  }, [activeChannelId, qc])
+
+  // ---------- Select ----------
+  const selectChannel = useCallback(
+    (id: string) => {
+      setActiveChannelId(id)
+      qc.setQueryData<Channel[]>(chatKeys.channels(), (old) =>
+        old ? old.map((c) => (c.id === id ? { ...c, unread: 0 } : c)) : old,
+      )
+    },
+    [qc],
+  )
+
+  // ---------- Send ----------
+  const sendMessage = useCallback(
+    async (
+      body: string,
+      attachment?: { name: string; size: string; type: 'image' | 'file' },
+    ) => {
+      if (!activeChannelId) return
+      try {
+        await sendMessageApi(activeChannelId, body, attachment)
+        await qc.invalidateQueries({
+          queryKey: chatKeys.messages(activeChannelId),
+        })
+        await qc.invalidateQueries({ queryKey: chatKeys.channels() })
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to send message:', e)
+        throw e
+      }
+    },
+    [activeChannelId, qc],
+  )
+
+  const totalUnread = useMemo(
+    () => channels.reduce((sum, c) => sum + (c.unread ?? 0), 0),
+    [channels],
+  )
 
   return {
     channels,
@@ -70,5 +107,8 @@ export function useChat() {
     activeMessages,
     selectChannel,
     sendMessage,
+    isLoadingChannels: channelsQuery.isLoading,
+    isLoadingMessages: messagesQuery.isLoading,
+    totalUnread,
   }
 }

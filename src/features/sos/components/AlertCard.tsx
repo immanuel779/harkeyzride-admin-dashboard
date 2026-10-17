@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, User, Car } from 'lucide-react'
+import { AlertTriangle, Clock } from 'lucide-react'
 
 import { cn } from '../../../lib/cn'
 import type { SosAlert, AlertSeverity } from '../data/mockAlerts'

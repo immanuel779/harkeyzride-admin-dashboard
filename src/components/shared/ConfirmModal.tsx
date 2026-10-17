@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
 type Props = {
@@ -26,38 +26,67 @@ export function ConfirmModal({
   onClose,
   children,
 }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const confirmButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Escape key + body scroll lock + focus management
   useEffect(() => {
     if (!open) return
+
+    const previousFocus = document.activeElement as HTMLElement | null
+    document.body.style.overflow = 'hidden'
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !loading) onClose()
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+
+    // Focus the confirm button when opening
+    setTimeout(() => confirmButtonRef.current?.focus(), 50)
+
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+      previousFocus?.focus?.()
+    }
+  }, [open, loading, onClose])
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+       <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      aria-describedby={description ? 'modal-desc' : undefined}
+    >
       <div
         className="absolute inset-0 bg-black/50"
         onClick={loading ? undefined : onClose}
+        aria-hidden="true"
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-surface border border-border shadow-xl">
+      <div
+        ref={dialogRef}
+               className="relative w-full max-w-md rounded-2xl bg-surface border border-border shadow-xl max-h-[90vh] overflow-y-auto">
         <button
           type="button"
           onClick={onClose}
           disabled={loading}
           className="absolute top-4 right-4 p-1 rounded-lg text-ink-muted hover:bg-surface-alt hover:text-ink transition-colors disabled:opacity-40"
-          aria-label="Close"
+          aria-label="Close dialog"
         >
           <X size={18} />
         </button>
 
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-ink mb-2">{title}</h3>
+          <h3 id="modal-title" className="text-lg font-semibold text-ink mb-2">
+            {title}
+          </h3>
           {description ? (
-            <p className="text-sm text-ink-secondary mb-4">{description}</p>
+            <p id="modal-desc" className="text-sm text-ink-secondary mb-4">
+              {description}
+            </p>
           ) : null}
 
           {children ? <div className="mb-6">{children}</div> : null}
@@ -72,6 +101,7 @@ export function ConfirmModal({
               {cancelLabel}
             </button>
             <button
+              ref={confirmButtonRef}
               type="button"
               onClick={onConfirm}
               disabled={loading}

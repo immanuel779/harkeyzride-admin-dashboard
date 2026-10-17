@@ -2,7 +2,7 @@
 // GET /admin/dashboard/kpis
 // GET /admin/dashboard/activity
 // GET /admin/dashboard/rides-chart?range=7d
-
+import { api } from '../../../lib/apiClient'
 export type KpiMetric = {
   id: string
   label: string
@@ -153,5 +153,93 @@ export async function fetchDashboardOverview(): Promise<DashboardOverview> {
     kpis: MOCK_KPIS,
     activity: MOCK_ACTIVITY,
     chart: MOCK_CHART,
+  }
+}
+
+// ---------- Real API branch ----------
+
+type BackendDashboard = {
+  users: number
+  riders: number
+  drivers: number
+  rides: number
+  activeDrivers: number
+  completedRides: number
+  pendingDrivers: number
+  openSos: number
+  pendingWithdrawals: number
+  pendingDocuments: number
+  activeSubscriptions: number
+  totalRevenue: number
+  totalPayouts: number
+}
+
+export async function fetchDashboardOverviewReal(): Promise<DashboardOverview> {
+  const [dashboard, analytics] = await Promise.all([
+    api.get<BackendDashboard>('/admin/dashboard'),
+    api
+      .get<{
+        rides: { byDay: { date: string; count: number }[] }
+        revenue: { byDay: { date: string; amount: number }[] }
+      }>('/admin/analytics', { query: { from: new Date(Date.now() - 7 * 86400000).toISOString() } })
+      .catch(() => null),
+  ])
+
+  // Build KPIs from real numbers
+  const kpis: KpiMetric[] = [
+    {
+      id: 'rides',
+      label: 'Total Rides',
+      value: dashboard.rides.toLocaleString(),
+      delta: 0,
+      deltaLabel: 'all time',
+      positive: true,
+      icon: 'rides',
+    },
+    {
+      id: 'revenue',
+      label: 'Total Revenue',
+      value: `₦${dashboard.totalRevenue.toLocaleString()}`,
+      delta: 0,
+      deltaLabel: 'all time',
+      positive: true,
+      icon: 'revenue',
+    },
+    {
+      id: 'drivers',
+      label: 'Active Drivers',
+      value: dashboard.activeDrivers.toString(),
+      delta: 0,
+      deltaLabel: `of ${dashboard.drivers}`,
+      positive: true,
+      icon: 'drivers',
+    },
+    {
+      id: 'sos',
+      label: 'Open SOS',
+      value: dashboard.openSos.toString(),
+      delta: 0,
+      deltaLabel: 'right now',
+      positive: true,
+      icon: 'sos',
+    },
+  ]
+
+  // Build chart data from analytics byDay
+  const chart: RidesChartPoint[] = (analytics?.rides.byDay ?? [])
+    .slice(-7)
+    .map((d) => ({
+      day: new Date(d.date).toLocaleDateString('en-NG', { weekday: 'short' }),
+      rides: d.count,
+      revenue: 0,
+    }))
+
+  // Fallback to empty chart if no data
+  const finalChart = chart.length > 0 ? chart : MOCK_CHART.map((c) => ({ ...c, rides: 0, revenue: 0 }))
+
+  return {
+    kpis,
+    activity: [],
+    chart: finalChart,
   }
 }

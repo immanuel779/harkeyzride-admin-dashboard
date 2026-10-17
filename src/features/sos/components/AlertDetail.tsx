@@ -1,10 +1,10 @@
+import { MapView } from '../../../components/shared/MapView'
 import { useState } from 'react'
 import {
   Phone,
   User,
   Car,
   MapPin,
-  Clock,
   CheckCircle2,
   AlertCircle,
   Send,
@@ -77,21 +77,57 @@ export function AlertDetail({ alert, onAcknowledge, onResolve }: Props) {
       {/* Info grid */}
       <div className="p-5 space-y-4">
         {/* Location */}
-        <div className="rounded-lg bg-surface-alt p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-navy text-white flex items-center justify-center flex-shrink-0">
-            <MapPin size={16} />
+               <div className="rounded-lg bg-surface-alt border border-border overflow-hidden">
+          <div className="p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-navy text-white flex items-center justify-center flex-shrink-0">
+              <MapPin size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-ink-secondary uppercase tracking-wide">
+                Location
+              </div>
+              <div className="text-sm font-medium text-ink mt-0.5">
+                {alert.location}
+              </div>
+              <div className="text-xs text-ink-muted font-mono mt-1">
+                {alert.coordinates.lat.toFixed(4)}, {alert.coordinates.lng.toFixed(4)}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-ink-secondary uppercase tracking-wide">
-              Location
-            </div>
-            <div className="text-sm font-medium text-ink mt-0.5">
-              {alert.location}
-            </div>
-            <div className="text-xs text-ink-muted font-mono mt-1">
-              {alert.coordinates.lat.toFixed(4)}, {alert.coordinates.lng.toFixed(4)}
-            </div>
-          </div>
+          <MapView
+            height="200px"
+            center={[alert.coordinates.lat, alert.coordinates.lng]}
+            zoom={15}
+            markers={[
+              {
+                id: alert.id,
+                position: [alert.coordinates.lat, alert.coordinates.lng],
+                color:
+                  alert.severity === 'critical'
+                    ? '#E5484D'
+                    : alert.severity === 'high'
+                      ? '#F5A623'
+                      : '#0B7BD6',
+                pulse: alert.status === 'open',
+                popup: {
+                  title: alert.riderName,
+                  badge: {
+                    text: alert.severity,
+                    tone:
+                      alert.severity === 'critical'
+                        ? 'danger'
+                        : alert.severity === 'high'
+                          ? 'warning'
+                          : 'info',
+                  },
+                  lines: [
+                    { label: 'Ride', value: `#${alert.rideId.replace('rd_', '')}` },
+                    { label: 'Driver', value: alert.driverName },
+                  ],
+                },
+              },
+            ]}
+          />
         </div>
 
         {/* People */}

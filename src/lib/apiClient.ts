@@ -37,7 +37,7 @@ export class ApiError extends Error {
 }
 
 /* ==========================================================================
-   DEBUG FLAG — self-contained, does not require env.debug to exist
+   DEBUG FLAG
    ========================================================================== */
 
 const DEBUG: boolean = (() => {
@@ -137,6 +137,7 @@ async function refreshAccessToken(): Promise<string | null> {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ refreshToken }),
+        // Removed credentials: 'include' here
       })
 
       if (!res.ok) return null
@@ -324,7 +325,7 @@ export async function apiRequest<T>(
             : JSON.stringify(body)
           : undefined,
       signal: controller.signal,
-      credentials: 'include',
+      // Removed credentials: 'include' here
     })
   } catch (err) {
     clearTimeout(timeoutId)
@@ -524,7 +525,7 @@ export async function pingBackend(): Promise<{
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'ping@x.x', password: 'ping' }),
-      credentials: 'include',
+      // Removed credentials: 'include' here
     })
     return {
       reachable: true,
